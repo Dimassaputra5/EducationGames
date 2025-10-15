@@ -1,0 +1,4 @@
+[gd_scene format=3 uid="uid://ccn11j7swh517"]
+
+[node name="Level 1" type="Node2D"]
+rotation = -0.47192466
