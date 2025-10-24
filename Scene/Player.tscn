@@ -1,6 +1,7 @@
-[gd_scene load_steps=33 format=3 uid="uid://i6gs5jfo8l7k"]
+[gd_scene load_steps=35 format=3 uid="uid://i6gs5jfo8l7k"]
 
 [ext_resource type="Texture2D" uid="uid://h2qialduihx4" path="res://Asset/Sprite/FreeKnight_v1/Colour1/NoOutline/120x80_PNGSheets/_Idle.png" id="1_6l3be"]
+[ext_resource type="Texture2D" uid="uid://nj8tgxpjg3xf" path="res://Asset/Sprite/FreeKnight_v1/Colour1/NoOutline/120x80_PNGSheets/_Crouch.png" id="1_fvocf"]
 [ext_resource type="Texture2D" uid="uid://dngir4uw4ogag" path="res://Asset/Sprite/FreeKnight_v1/Colour1/NoOutline/120x80_PNGSheets/_Jump.png" id="1_mud5u"]
 [ext_resource type="Texture2D" uid="uid://dkdx22kt5o0m8" path="res://Asset/Sprite/FreeKnight_v1/Colour1/NoOutline/120x80_PNGSheets/_JumpFallInbetween.png" id="2_fvocf"]
 [ext_resource type="Texture2D" uid="uid://dwjq3flfusio7" path="res://Asset/Sprite/FreeKnight_v1/Colour1/NoOutline/120x80_PNGSheets/_Run.png" id="3_pmp2f"]
@@ -33,7 +34,7 @@ func _physics_process(delta: float) -> void:
 	elif direction < 0 :
 		animated_sprite.flip_h = true
 	
-	#Play Animation
+	#Play Animations
 	if is_on_floor() :
 		if direction == 0 :
 			animated_sprite.play(\"idle\")
@@ -41,6 +42,8 @@ func _physics_process(delta: float) -> void:
 			animated_sprite.play(\"Run\")
 	else :
 		animated_sprite.play(\"Jump\")
+		
+	
 	
 	if direction:
 		velocity.x = direction * SPEED
@@ -49,6 +52,10 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 "
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_55jmu"]
+atlas = ExtResource("1_fvocf")
+region = Rect2(0, 0, 120, 80)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_7dww1"]
 atlas = ExtResource("1_mud5u")
@@ -154,6 +161,14 @@ region = Rect2(1080, 0, 120, 80)
 animations = [{
 "frames": [{
 "duration": 1.0,
+"texture": SubResource("AtlasTexture_55jmu")
+}],
+"loop": true,
+"name": &"Crouch",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
 "texture": SubResource("AtlasTexture_7dww1")
 }, {
 "duration": 1.0,
@@ -241,6 +256,11 @@ animations = [{
 "loop": true,
 "name": &"idle",
 "speed": 10.0
+}, {
+"frames": [],
+"loop": true,
+"name": &"new_animation",
+"speed": 5.0
 }]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_inyuv"]
@@ -252,10 +272,9 @@ script = SubResource("GDScript_6l3be")
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 position = Vector2(28, -41)
 sprite_frames = SubResource("SpriteFrames_7dww1")
-animation = &"Run"
+animation = &"new_animation"
 autoplay = "Run"
-frame_progress = 0.31716612
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(22.25, -20)
+position = Vector2(34, -19)
 shape = SubResource("RectangleShape2D_inyuv")
