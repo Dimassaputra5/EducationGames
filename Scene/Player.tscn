@@ -714,7 +714,7 @@ animations = [{
 }],
 "loop": true,
 "name": &"Dash",
-"speed": 5.0
+"speed": 3.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -1000,9 +1000,9 @@ script = SubResource("GDScript_6l3be")
 position = Vector2(4, -35.625)
 scale = Vector2(0.83333343, 0.8906252)
 sprite_frames = SubResource("SpriteFrames_7dww1")
-animation = &"Wall_Slide"
+animation = &"Dash"
 autoplay = "Idle"
-frame_progress = 0.70353276
+frame_progress = 0.22154436
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -16)
@@ -1018,7 +1018,7 @@ target_position = Vector2(0, -25)
 
 [node name="RayCast_Head" type="RayCast2D" parent="."]
 position = Vector2(1, -32)
-target_position = Vector2(0, -10)
+target_position = Vector2(13, 0)
 
 [node name="RayCast_Left" type="RayCast2D" parent="."]
 position = Vector2(-8, -20)
