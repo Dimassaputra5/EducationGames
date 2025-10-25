@@ -1,4 +1,4 @@
-[gd_scene load_steps=115 format=3 uid="uid://i6gs5jfo8l7k"]
+[gd_scene load_steps=119 format=3 uid="uid://i6gs5jfo8l7k"]
 
 [ext_resource type="Texture2D" uid="uid://h2qialduihx4" path="res://Asset/Sprite/FreeKnight_v1/Colour1/NoOutline/120x80_PNGSheets/_Idle.png" id="1_6l3be"]
 [ext_resource type="Texture2D" uid="uid://nj8tgxpjg3xf" path="res://Asset/Sprite/FreeKnight_v1/Colour1/NoOutline/120x80_PNGSheets/_Crouch.png" id="1_fvocf"]
@@ -18,6 +18,7 @@
 [ext_resource type="Texture2D" uid="uid://iu6047tkt132" path="res://Asset/Sprite/FreeKnight_v1/Colour1/NoOutline/120x80_PNGSheets/_WallClimb.png" id="15_lbaqs"]
 [ext_resource type="Texture2D" uid="uid://f1hxtkev7fyo" path="res://Asset/Sprite/FreeKnight_v1/Colour1/NoOutline/120x80_PNGSheets/_WallHang.png" id="16_ds1xm"]
 [ext_resource type="Texture2D" uid="uid://c8tfs374knsgk" path="res://Asset/Sprite/FreeKnight_v1/Colour1/NoOutline/120x80_PNGSheets/_WallClimbNoMovement.png" id="17_55jmu"]
+[ext_resource type="Texture2D" uid="uid://hryeeqfgah6c" path="res://Asset/Sprite/FreeKnight_v1/Colour1/NoOutline/120x80_PNGSheets/_WallSlide.png" id="18_4b564"]
 
 [sub_resource type="GDScript" id="GDScript_6l3be"]
 script/source = "extends CharacterBody2D
@@ -35,6 +36,10 @@ script/source = "extends CharacterBody2D
 @export var dash_speed: float = 600
 @export var dash_cooldown: float = 5.0
 
+# == WALL CONFIG ==
+@export var wall_slide_speed: float = 50
+@export var wall_jump_force: Vector2 = Vector2(200, -250)
+
 # ------------------------------------------------------------
 # == NODE REFERENCES ==
 # ------------------------------------------------------------
@@ -42,6 +47,9 @@ script/source = "extends CharacterBody2D
 @onready var cshape: CollisionShape2D = $CollisionShape2D
 @onready var ray1: RayCast2D = $RayCast_Crouch_1
 @onready var ray2: RayCast2D = $RayCast_Crouch_2
+@onready var ray_left: RayCast2D = $RayCast_Left
+@onready var ray_right: RayCast2D = $RayCast_Right
+@onready var ray_head: RayCast2D = $RayCast_Head
 
 # ------------------------------------------------------------
 # == STATE VARIABLES ==
@@ -49,6 +57,9 @@ script/source = "extends CharacterBody2D
 var is_crouching: bool = false
 var stuck_under_object: bool = false
 var is_dashing: bool = false
+var is_wall_sliding: bool = false
+var can_wall_jump: bool = false
+var can_ledge_grab: bool = false
 
 var dash_dir: int = 1
 var dash_timer: float = 0.0
@@ -63,7 +74,7 @@ var crouching_cshape = preload(\"res://Resources/Knight_Crouching_Collision.tres
 # == MAIN LOOP ==
 # ------------------------------------------------------------
 func _physics_process(delta):
-	# === UPDATE COOLDOWN ===
+	# === DASH COOLDOWN ===
 	if dash_cooldown_timer > 0:
 		dash_cooldown_timer -= delta
 
@@ -72,12 +83,44 @@ func _physics_process(delta):
 		process_dash(delta)
 		return
 
-	# === INPUT: DASH ===
+	# === WALL DETECTION ===
+	var on_wall_left = ray_left.is_colliding()
+	var on_wall_right = ray_right.is_colliding()
+	var touching_wall = on_wall_left or on_wall_right
+	# wall_dir: -1 = wall on left, 1 = wall on right, 0 = none
+	var wall_dir = -1 if on_wall_left else (1 if on_wall_right else 0)
+
+	# === WALL SLIDE ===
+	if !is_on_floor() and touching_wall and velocity.y > 0:
+		is_wall_sliding = true
+
+		# face *away* from wall (so sprite faces opposite of wall side)
+		ap.flip_h = (wall_dir == 1)  # ✅ fixed: wall right → face left, wall left → face right
+
+		velocity.y = min(velocity.y, wall_slide_speed)
+	else:
+		is_wall_sliding = false
+
+	# === LEDGE GRAB ===
+	if touching_wall and !ray_head.is_colliding() and velocity.y > 0:
+		can_ledge_grab = true
+		ap.flip_h = (wall_dir == 1)  # konsisten arah
+	else:
+		can_ledge_grab = false
+
+	# === WALL JUMP ===
+	if is_wall_sliding and Input.is_action_just_pressed(\"Jump\"):
+		var push_dir = -wall_dir
+		velocity.x = wall_jump_force.x * push_dir
+		velocity.y = wall_jump_force.y
+		is_wall_sliding = false
+
+	# === DASH INPUT ===
 	if Input.is_action_just_pressed(\"Dash\") and dash_cooldown_timer <= 0:
 		start_dash()
 
 	# === GRAVITY ===
-	if !is_on_floor():
+	if !is_on_floor() and !is_wall_sliding:
 		velocity.y += gravity
 		velocity.y = clamp(velocity.y, -1000, 1000)
 
@@ -91,8 +134,10 @@ func _physics_process(delta):
 	if is_crouching:
 		current_speed *= crouch_multiplier
 
-	velocity.x = current_speed * dir
-	if dir != 0:
+	if !is_wall_sliding:
+		velocity.x = current_speed * dir
+
+	if dir != 0 and !is_wall_sliding:
 		switch_direction(dir)
 
 	# === CROUCH ===
@@ -117,6 +162,12 @@ func _physics_process(delta):
 func player_animation(dir):
 	if is_dashing:
 		ap.play(\"Dash\")
+		return
+	if is_wall_sliding:
+		ap.play(\"Wall_Slide\")
+		return
+	if can_ledge_grab:
+		ap.play(\"Ledge_Grab\")
 		return
 
 	if is_on_floor():
@@ -160,7 +211,6 @@ func start_dash():
 	dash_dir = -1 if ap.flip_h else 1
 	ap.play(\"Dash\")
 
-	# hitung waktu yang dibutuhkan untuk mencapai jarak dash_distance
 	dash_time = dash_distance / dash_speed
 	dash_timer = dash_time
 
@@ -384,6 +434,10 @@ region = Rect2(0, 0, 120, 80)
 atlas = ExtResource("2_fvocf")
 region = Rect2(120, 0, 120, 80)
 
+[sub_resource type="AtlasTexture" id="AtlasTexture_7p7ba"]
+atlas = ExtResource("16_ds1xm")
+region = Rect2(0, 0, 120, 80)
+
 [sub_resource type="AtlasTexture" id="AtlasTexture_8x1cc"]
 atlas = ExtResource("11_e3d6m")
 region = Rect2(0, 0, 120, 80)
@@ -520,9 +574,17 @@ region = Rect2(600, 0, 120, 80)
 atlas = ExtResource("15_lbaqs")
 region = Rect2(720, 0, 120, 80)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_7p7ba"]
-atlas = ExtResource("16_ds1xm")
+[sub_resource type="AtlasTexture" id="AtlasTexture_3yubv"]
+atlas = ExtResource("18_4b564")
 region = Rect2(0, 0, 120, 80)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_j25v1"]
+atlas = ExtResource("18_4b564")
+region = Rect2(120, 0, 120, 80)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_e7fjt"]
+atlas = ExtResource("18_4b564")
+region = Rect2(240, 0, 120, 80)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_cy2ba"]
 atlas = ExtResource("17_55jmu")
@@ -757,6 +819,14 @@ animations = [{
 }, {
 "frames": [{
 "duration": 1.0,
+"texture": SubResource("AtlasTexture_7p7ba")
+}],
+"loop": true,
+"name": &"Ledge_Grab",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
 "texture": SubResource("AtlasTexture_8x1cc")
 }, {
 "duration": 1.0,
@@ -884,10 +954,16 @@ animations = [{
 }, {
 "frames": [{
 "duration": 1.0,
-"texture": SubResource("AtlasTexture_7p7ba")
+"texture": SubResource("AtlasTexture_3yubv")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_j25v1")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_e7fjt")
 }],
 "loop": true,
-"name": &"Wall hang",
+"name": &"Wall_Slide",
 "speed": 5.0
 }, {
 "frames": [{
@@ -924,9 +1000,9 @@ script = SubResource("GDScript_6l3be")
 position = Vector2(4, -35.625)
 scale = Vector2(0.83333343, 0.8906252)
 sprite_frames = SubResource("SpriteFrames_7dww1")
-animation = &"Roll"
+animation = &"Wall_Slide"
 autoplay = "Idle"
-frame_progress = 0.1663511
+frame_progress = 0.70353276
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -16)
@@ -939,3 +1015,15 @@ target_position = Vector2(0, -25)
 [node name="RayCast_Crouch_2" type="RayCast2D" parent="."]
 position = Vector2(7, -8)
 target_position = Vector2(0, -25)
+
+[node name="RayCast_Head" type="RayCast2D" parent="."]
+position = Vector2(1, -32)
+target_position = Vector2(0, -10)
+
+[node name="RayCast_Left" type="RayCast2D" parent="."]
+position = Vector2(-8, -20)
+target_position = Vector2(-8, 0)
+
+[node name="RayCast_Right" type="RayCast2D" parent="."]
+position = Vector2(8, -19)
+target_position = Vector2(8, 0)
